@@ -450,6 +450,7 @@ class N2GoApi
             $product['oldPrice'] = $product['newPrice'] = round($product['oldPrice'], 2);
             $product['oldPriceNet'] = $product['newPriceNet'] = round($product['oldPriceNet'], 2);
             $product['url'] = xtc_href_link('', '', 'NONSSL', false);
+            $product['url'] = trim($product['url'], '/') . '/';
             $product['link'] = FILENAME_PRODUCT_INFO . '?products_id=' . $id;
 
             $product['images'] = ($product['images'] ? array(dirname($product['url']) . '/' . DIR_WS_ORIGINAL_IMAGES . $product['images']) : array());
@@ -492,9 +493,16 @@ class N2GoApi
 
         if (empty($fields)) {
             $fields = array_keys($this->getCustomerFields());
-        } else if (!in_array('cu.customers_id', $fields)) {
-            //customer Id must always be present
-            $fields[] = 'cu.customers_id';
+        } else {
+            if (!in_array('cu.customers_id', $fields)) {
+                //customer Id must always be present
+                $fields[] = 'cu.customers_id';
+            }
+
+            if (!in_array('nr.mail_status', $fields)) {
+                //customer Id must always be present
+                $fields[] = 'nr.mail_status';
+            }
         }
 
         foreach ($fields as $field) {
