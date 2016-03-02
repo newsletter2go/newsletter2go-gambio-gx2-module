@@ -22,7 +22,6 @@ class N2GoApi
 
     private $apikey;
     private $username;
-    // private $connected = false; // deprecated
 
     /**
      * Associative array with get parameters
@@ -131,7 +130,7 @@ class N2GoApi
         if (!empty($user) && !empty($apikey)) {
             $connected = ($user['configuration_value'] == $this->username) && ($apikey['configuration_value'] == $this->apikey);
             if (!$connected) {
-               $this->failure('Authentication failed!', self::ERRNO_PLUGIN_CREDENTIALS_WRONG);
+                $this->failure('Authentication failed!', self::ERRNO_PLUGIN_CREDENTIALS_WRONG);
             }
         }
     }
@@ -173,7 +172,7 @@ class N2GoApi
         $this->output['languages'] = $languages;
 
         if (empty( $languages)) {
-           $this->failure('Failed to retrieve languages');
+            $this->failure('Failed to retrieve languages');
         }
     }
 
@@ -396,6 +395,7 @@ class N2GoApi
         $fields['pr.products_quantity'] = $this->createField('pr.products_quantity', 'Product Quantity.');
         $fields['pr.products_shippingtime'] = $this->createField('pr.products_shippingtime', 'Product Shipping Time.');
         $fields['mf.manufacturers_name'] = $this->createField('mf.manufacturers_name', 'Manufacturer Name.');
+        $fields['pic.brand_name'] = $this->createField('pic.brand_name', 'Brand Name.');
         $fields['pd.products_name'] = $this->createField('pd.products_name', 'Product Name.');
         $fields['pd.products_url'] = $this->createField('pd.products_url', 'Product URL.');
         $fields['pd.products_description'] = $this->createField('pd.products_description', 'Product Description.');
@@ -449,16 +449,16 @@ class N2GoApi
 
             $product['oldPrice'] = $product['newPrice'] = round($product['oldPrice'], 2);
             $product['oldPriceNet'] = $product['newPriceNet'] = round($product['oldPriceNet'], 2);
-            $product['url'] = xtc_href_link('', '', 'NONSSL', false) . '/';
+            $product['url'] = xtc_href_link('', '', 'NONSSL', false);
             $product['link'] = FILENAME_PRODUCT_INFO . '?products_id=' . $id;
 
-            $product['images'] = ($product['images'] ? array($product['url'] . DIR_WS_ORIGINAL_IMAGES . $product['images']) : array());
+            $product['images'] = ($product['images'] ? array(dirname($product['url']) . '/' . DIR_WS_ORIGINAL_IMAGES . $product['images']) : array());
             $query = 'SELECT image_name FROM ' . TABLE_PRODUCTS_IMAGES . ' WHERE products_id = ' . $id;
             $imagesQuery = xtc_db_query($query);
             $n = xtc_db_num_rows($imagesQuery);
             for ($i = 0; $i < $n; $i++) {
                 $image = xtc_db_fetch_array($imagesQuery);
-                $product['images'][] = $product['url'] . DIR_WS_ORIGINAL_IMAGES . $image['image_name'];
+                $product['images'][] = dirname($product['url']) . '/' . DIR_WS_ORIGINAL_IMAGES . $image['image_name'];
             }
             $this->output['product'] = $product;
 
@@ -573,7 +573,8 @@ class N2GoApi
             'pd.products_description' => 'description',
             'pr.products_image' => 'images',
             'pr.products_model' => 'model',
-            'mf.manufacturers_name' => 'brand',
+            'mf.manufacturers_name' => 'manufacturer',
+            'pic.brand_name' => 'brand',
             'tr.tax_rate' => 'vat',
         );
 
