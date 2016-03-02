@@ -431,13 +431,14 @@ class N2GoApi
                     LEFT JOIN ' . TABLE_TAX_RATES . ' tr ON pr.products_tax_class_id = tr.tax_class_id
                     LEFT JOIN ' . TABLE_PRODUCTS_DESCRIPTION . ' pd ON pr.products_id = pd.products_id
                     LEFT JOIN ' . TABLE_MANUFACTURERS . ' mf ON mf.manufacturers_id = pr.manufacturers_id
+                    LEFT JOIN products_item_codes pic ON pr.products_id = pic.products_id
                     LEFT JOIN ' . TABLE_LANGUAGES . ' ln ON pd.language_id = ln.languages_id ' .
-                    "WHERE (pr.products_id = '$id' OR pr.products_model LIKE '$id') AND ln.code = '$lang' GROUP BY pr.products_id";
+            "WHERE (pr.products_id = '$id' OR pr.products_model = '$id') AND ln.code = '$lang' GROUP BY pr.products_id";
 
         $productResult = xtc_db_query($query);
         $product = xtc_db_fetch_array($productResult);
 
-        if ($product['id'] == $id || $product['ean'] == $id) {
+        if ($product['id'] == $id || $product['model'] == $id) {
 
             $id = $product['id'];
 
