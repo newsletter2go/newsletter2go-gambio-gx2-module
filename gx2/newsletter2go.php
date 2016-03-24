@@ -450,6 +450,8 @@ class N2GoApi
             $product['oldPrice'] = $product['newPrice'] = round($product['oldPrice'], 2);
             $product['oldPriceNet'] = $product['newPriceNet'] = round($product['oldPriceNet'], 2);
             $product['url'] = xtc_href_link('', '', 'NONSSL', false);
+            // removing index.php suffix
+            $product['url'] = strstr($product['url'], 'index.php', true);
             $product['url'] = trim($product['url'], '/') . '/';
             $product['link'] = FILENAME_PRODUCT_INFO . '?products_id=' . $id;
 
