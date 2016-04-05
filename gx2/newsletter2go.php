@@ -455,13 +455,13 @@ class N2GoApi
             $product['url'] = trim($product['url'], '/') . '/';
             $product['link'] = FILENAME_PRODUCT_INFO . '?products_id=' . $id;
 
-            $product['images'] = ($product['images'] ? array(dirname($product['url']) . '/' . DIR_WS_POPUP_IMAGES . $product['images']) : array());
+            $product['images'] = ($product['images'] ? array($product['url'] . DIR_WS_POPUP_IMAGES . $product['images']) : array());
             $query = 'SELECT image_name FROM ' . TABLE_PRODUCTS_IMAGES . ' WHERE products_id = ' . $id;
             $imagesQuery = xtc_db_query($query);
             $n = xtc_db_num_rows($imagesQuery);
             for ($i = 0; $i < $n; $i++) {
                 $image = xtc_db_fetch_array($imagesQuery);
-                $product['images'][] = dirname($product['url']) . '/' . DIR_WS_POPUP_IMAGES . $image['image_name'];
+                $product['images'][] = $product['url'] . DIR_WS_POPUP_IMAGES . $image['image_name'];
             }
             $this->output['product'] = $product;
 
