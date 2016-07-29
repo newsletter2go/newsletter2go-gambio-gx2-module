@@ -1,5 +1,5 @@
 <?php
-// VERSION 3000 line:61
+// VERSION 4000 line:90
 
 if (isset($SESSION) && $_SESSION['customers_status']['customers_status_id'] == '0') {
     define('SUPPRESS_REDIRECT', true);
@@ -11,6 +11,7 @@ AdminMenuControl::connect_with_page('admin.php?do=ModuleCenter');
 
 defined('GM_HTTP_SERVER') or define('GM_HTTP_SERVER', HTTP_SERVER);
 define('PAGE_URL', GM_HTTP_SERVER . DIR_WS_ADMIN . basename(__FILE__));
+const N2GO_INTEGRATION_URL = 'https://ui.newsletter2go.com/integrations/connect/GAM/';
 
 function replaceTextPlaceholders($content)
 {
@@ -39,10 +40,28 @@ function getLanguageCodes()
     return $languageCodes;
 }
 
+function getDefaultLanguage()
+{
+    $query = "SELECT `configuration_value` FROM `" . TABLE_CONFIGURATION . "` WHERE `configuration_key` = 'DEFAULT_LANGUAGE'";
+    $langCode  = xtc_db_fetch_array(xtc_db_query($query));
+    return $langCode['configuration_value'];
+}
+
+function getVersion()
+{
+    $query = "SELECT `configuration_value` FROM `" . TABLE_CONFIGURATION . "` WHERE `configuration_key` = 'NEWSLETTER2GO_VERSION'";
+    $version = xtc_db_fetch_array(xtc_db_query($query));
+    return $version['configuration_value'];
+}
+
 // setup username, apikey (initial or from db)
 $query = "SELECT `configuration_value` FROM `" . TABLE_CONFIGURATION . "` WHERE `configuration_key` = 'NEWSLETTER2GO_USERNAME'";
 $username = xtc_db_fetch_array(xtc_db_query($query));
 $username = $username['configuration_value'];
+
+$queryParams['version'] = getVersion();
+$version = wordwrap($queryParams['version'], 1, '.',true);
+$version = substr_replace($version,'',5,-1);
 
 if (empty($username)) {
     $username = '';
@@ -52,6 +71,14 @@ if (empty($username)) {
     $query = "SELECT `configuration_value` FROM `" . TABLE_CONFIGURATION . "` WHERE `configuration_key` = 'NEWSLETTER2GO_APIKEY'";
     $apikey = xtc_db_fetch_array(xtc_db_query($query));
     $apikey = $apikey['configuration_value'];
+
+    $queryParams['username']  = $username;
+    $queryParams['apikey']  = $apikey;
+    $queryParams['language'] = getDefaultLanguage();
+    $queryParams['url'] = HTTP_SERVER.DIR_WS_CATALOG;
+
+    $connectUrl = N2GO_INTEGRATION_URL . '?' . http_build_query($queryParams);
+
 }
 
 if (!empty($_POST['n2g_username']) && !empty($_POST['n2g_apikey'])) {
@@ -60,7 +87,7 @@ if (!empty($_POST['n2g_username']) && !empty($_POST['n2g_apikey'])) {
 
     if (empty($username)) {
         $query = "INSERT INTO `" . TABLE_CONFIGURATION . "` (`configuration_key`, `configuration_value`)
-                    VALUES ('NEWSLETTER2GO_USERNAME', '$inputUser'), ('NEWSLETTER2GO_APIKEY', '$inputKey'), ('NEWSLETTER2GO_VERSION', '3004')";
+                    VALUES ('NEWSLETTER2GO_USERNAME', '$inputUser'), ('NEWSLETTER2GO_APIKEY', '$inputKey'), ('NEWSLETTER2GO_VERSION', '4000')";
         xtc_db_query($query);
         $username = $inputUser;
         $apikey = $inputKey;
@@ -220,7 +247,15 @@ ob_start();
                                 key
                             </button>
                         </dd>
+                        <dt><label for="n2g_version">##version</label>
+                        </dt>
+                        <dd>
+                            <?php echo $version; ?>
+                        </dd>
                     </dl>
+                    <?php if ($connectUrl) { ?>
+                        <a href="<?php echo $connectUrl; ?>" class="button" target="_blank">Connect to Newsletter2Go</a>
+                    <?php }?>
                     <input type="submit" value="##save" class="button">
                     <input type="reset" value="##cancel" class="button">
                 </form>
