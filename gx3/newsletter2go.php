@@ -82,10 +82,10 @@ class N2GoApi
                             $this->getCustomerGroups();
                             break;
                         case 'getCustomerCount':
-                            echo $this->getCustomerCount();
+                            $this->getCustomerCount();
                             break;
                         case 'getGuestSubscribers':
-                            echo $this->getGuestSubscribers();
+                            $this->getGuestSubscribers();
                             break;
                         case 'changeMailStatus':
                             $this->changeMailStatus();
@@ -101,6 +101,7 @@ class N2GoApi
                             break;
                         default:
                             $this->failure('Error: Bad Request - wrong action parameter!');
+                            break;
                     }
                 }
             } else {
@@ -115,10 +116,6 @@ class N2GoApi
 
     /**
      * Checks if there is an enabled user with given api key
-     * @return array (
-     *      'result'    =>   true|false,
-     *      'message'   =>   result message,
-     * )
      */
     private function checkCredentials()
     {
@@ -137,7 +134,7 @@ class N2GoApi
     }
 
     /**
-     * @return mixed|string
+     * Fetches plugin version
      */
     public function getPluginVersion()
     {
@@ -155,7 +152,6 @@ class N2GoApi
 
     /**
      * Returns json encode array of shop's languages
-     * @return string
      */
     public function getLanguages()
     {
@@ -179,7 +175,6 @@ class N2GoApi
 
     /**
      * Returns json encode customer groups with names in shops default language
-     * @return string
      */
     public function getCustomerGroups()
     {
@@ -311,7 +306,6 @@ class N2GoApi
 
     /**
      * Returns json encode customer count based on group and subscribed parameters
-     * @return string
      */
     public function getCustomerCount()
     {
@@ -355,12 +349,15 @@ class N2GoApi
      */
     public function changeMailStatus()
     {
+        $link = 'db_link';
+        global $$link;
+
         $email = isset($this->postParams['email']) ? xtc_db_prepare_input($this->postParams['email']) : '';
         $status = isset($this->postParams['status']) ? xtc_db_prepare_input($this->postParams['status']) : 0;
         $table = TABLE_NEWSLETTER_RECIPIENTS;
         if (xtc_not_null($email) && $email) {
             xtc_db_query("UPDATE $table SET mail_status = $status WHERE customers_email_address = '$email'");
-            if(mysql_affected_rows() > 0) {
+            if(mysqli_affected_rows($$link) > 0) {
                 $this->output['message'] = 'Mail status successfully changed';
             } else {
                 $this->failure('There is no customer with given email address');
@@ -514,7 +511,6 @@ class N2GoApi
      * @param string $limit
      * @param string $offset
      * @param array $emails
-     * @return string
      */
     public function getGuestSubscribers($subscribed = '', $fields = array(), $limit = '', $offset = '', $emails = array())
     {
@@ -595,7 +591,6 @@ class N2GoApi
      * In case of any failure
      * @param $msg
      * @param $code
-     * @return mixed|string
      */
     private function failure ($msg, $code = self::ERRNO_PLUGIN_OTHER)
     {
@@ -621,7 +616,7 @@ if (!$apikey && isset($_POST['apikey'])) {
 header('Content-Type: application/json');
 
 if (!xtc_not_null($username) || !xtc_not_null($apikey)) {
-    echo json_encode(array('success' => false, 'message' => 'Error: Credentials are missing!', 'errorcode' => N2GOApi::ERRNO_PLUGIN_CREDENTIALS_MISSING));
+    echo json_encode(array('success' => false, 'message' => 'Error: Credentials are missing!', 'errorcode' => N2GoApi::ERRNO_PLUGIN_CREDENTIALS_MISSING));
     exit;
 }
 

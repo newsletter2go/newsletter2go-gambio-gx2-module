@@ -12,7 +12,7 @@ AdminMenuControl::connect_with_page('admin.php?do=ModuleCenter');
 defined('GM_HTTP_SERVER') or define('GM_HTTP_SERVER', HTTP_SERVER);
 define('PAGE_URL', GM_HTTP_SERVER . DIR_WS_ADMIN . basename(__FILE__));
 const N2GO_INTEGRATION_URL = 'https://ui.newsletter2go.com/integrations/connect/GAM/';
-const PLUGIN_VERSION = '4000';
+$PLUGIN_VERSION = '4.0.00';
 
 function replaceTextPlaceholders($content)
 {
@@ -44,7 +44,7 @@ function getLanguageCodes()
 function getDefaultLanguage()
 {
     $query = "SELECT `configuration_value` FROM `" . TABLE_CONFIGURATION . "` WHERE `configuration_key` = 'DEFAULT_LANGUAGE'";
-    $langCode  = xtc_db_fetch_array(xtc_db_query($query));
+    $langCode = xtc_db_fetch_array(xtc_db_query($query));
     return $langCode['configuration_value'];
 }
 
@@ -61,12 +61,11 @@ $username = xtc_db_fetch_array(xtc_db_query($query));
 $username = $username['configuration_value'];
 
 $queryParams['version'] = getVersion();
-
-if ($queryParams['version'] == null){
-    $version = PLUGIN_VERSION;
-    $queryParams['version'] = $version;
+if ($queryParams['version'] == null) {
+    $version = $PLUGIN_VERSION;
 } else {
-    $version = $queryParams['version'];
+    $version = wordwrap($queryParams['version'], 1, '.', true);
+    $version = substr_replace($version, '', 5, -1);
 }
 
 if (!empty($_POST['n2g_username']) && !empty($_POST['n2g_apikey'])) {
@@ -75,7 +74,7 @@ if (!empty($_POST['n2g_username']) && !empty($_POST['n2g_apikey'])) {
 
     if (empty($username)) {
         $query = "INSERT INTO `" . TABLE_CONFIGURATION . "` (`configuration_key`, `configuration_value`)
-                    VALUES ('NEWSLETTER2GO_USERNAME', '$inputUser'), ('NEWSLETTER2GO_APIKEY', '$inputKey'), ('NEWSLETTER2GO_VERSION', '$version')";
+                    VALUES ('NEWSLETTER2GO_USERNAME', '$inputUser'), ('NEWSLETTER2GO_APIKEY', '$inputKey'), ('NEWSLETTER2GO_VERSION', '4000')";
         xtc_db_query($query);
         $username = $inputUser;
         $apikey = $inputKey;
@@ -98,9 +97,6 @@ if (!empty($_POST['n2g_username']) && !empty($_POST['n2g_apikey'])) {
     }
 }
 
-$version = wordwrap($version, 1, '.',true);
-$version = substr_replace($version,'',5,-1);
-
 if (empty($username)) {
     $username = '';
     $apikey = '';
@@ -110,13 +106,12 @@ if (empty($username)) {
     $apikey = xtc_db_fetch_array(xtc_db_query($query));
     $apikey = $apikey['configuration_value'];
 
-    $queryParams['username']  = $username;
-    $queryParams['apikey']  = $apikey;
+    $queryParams['username'] = $username;
+    $queryParams['apikey'] = $apikey;
     $queryParams['language'] = getDefaultLanguage();
-    $queryParams['url'] = HTTP_SERVER.DIR_WS_CATALOG;
+    $queryParams['url'] = HTTP_SERVER . DIR_WS_CATALOG;
 
     $connectUrl = N2GO_INTEGRATION_URL . '?' . http_build_query($queryParams);
-
 }
 
 ob_start();
@@ -127,7 +122,7 @@ ob_start();
         <meta http-equiv="x-ua-compatible" content="IE=edge">
         <meta http-equiv="Content-Type" content="text/html; charset=<?php echo $_SESSION['language_charset']; ?>">
         <title><?php echo TITLE; ?></title>
-        <link rel="stylesheet" type="text/css" href="includes/stylesheet.css">
+        <link rel="stylesheet" type="text/css" href="<?php echo DIR_WS_ADMIN; ?>html/assets/styles/legacy/stylesheet.css">
         <style>
             td.boxCenter {
                 font: 0.8em sans-serif;
@@ -267,18 +262,21 @@ ob_start();
                         </dd>
                     </dl>
                     <?php if ($connectUrl) { ?>
-                        <a href="<?php echo $connectUrl; ?>" class="button" target="_blank">Connect to Newsletter2Go</a>
-                    <?php }?>
-                    <input type="submit" value="##save"  class="button">
+                        <a href="<?php echo $connectUrl; ?>" class="button" target="_blank">Connect
+                            to Newsletter2Go</a>
+                    <?php } ?>
+                    <input type="submit" value="##save" class="button">
                     <input type="reset" value="##cancel" class="button">
                 </form>
             </td>
         </tr>
     </table>
+    <?php
+        require(DIR_WS_INCLUDES . 'footer.php');
+    ?>
     </body>
     </html>
 
 <?php
-require(DIR_WS_INCLUDES . 'footer.php');
 echo replaceTextPlaceholders(ob_get_clean());
 require(DIR_WS_INCLUDES . 'application_bottom.php');
