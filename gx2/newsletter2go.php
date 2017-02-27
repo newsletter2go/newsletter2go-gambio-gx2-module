@@ -81,10 +81,7 @@ class N2GoApi
                             $this->getCustomerGroups();
                             break;
                         case 'getCustomerCount':
-                            echo $this->getCustomerCount();
-                            break;
-                        case 'getGuestSubscribers':
-                            echo $this->getGuestSubscribers();
+                            $this->getCustomerCount();
                             break;
                         case 'changeMailStatus':
                             $this->changeMailStatus();
@@ -100,6 +97,7 @@ class N2GoApi
                             break;
                         default:
                             $this->failure('Error: Bad Request - wrong action parameter!');
+                            break;
                     }
                 }
             } else {
@@ -114,10 +112,6 @@ class N2GoApi
 
     /**
      * Checks if there is an enabled user with given api key
-     * @return array (
-     *      'result'    =>   true|false,
-     *      'message'   =>   result message,
-     * )
      */
     private function checkCredentials()
     {
@@ -136,7 +130,7 @@ class N2GoApi
     }
 
     /**
-     * @return mixed|string
+     * Fetches plugin version
      */
     public function getPluginVersion()
     {
@@ -154,7 +148,6 @@ class N2GoApi
 
     /**
      * Returns json encode array of shop's languages
-     * @return string
      */
     public function getLanguages()
     {
@@ -178,7 +171,6 @@ class N2GoApi
 
     /**
      * Returns json encode customer groups with names in shops default language
-     * @return string
      */
     public function getCustomerGroups()
     {
@@ -219,7 +211,7 @@ class N2GoApi
         $fields['cu.customers_id'] = $this->createField('cu.customers_id', 'Customer Id.', 'Integer');
         $fields['cu.customers_gender'] = $this->createField('cu.customers_gender', 'Gender');
         $fields['cu.customers_firstname'] = $this->createField('cu.customers_firstname', 'First name');
-        $fields['cu.customers_lastname'] = $this->createField('cu.customers_lastname', 'First name');
+        $fields['cu.customers_lastname'] = $this->createField('cu.customers_lastname', 'Last name');
         $fields['cu.customers_dob'] = $this->createField('cu.customers_dob', 'Date of birth');
         $fields['cu.customers_email_address'] = $this->createField('cu.customers_email_address', 'E-mail address');
         $fields['cu.customers_telephone'] = $this->createField('cu.customers_telephone', 'Phone number');
@@ -254,6 +246,7 @@ class N2GoApi
 
         $conditions = array();
         $customers = array();
+        $this->output['customers'] = array();
         $query = $this->buildCustomersQuery($fields);
         $query .= ' FROM ' . TABLE_CUSTOMERS . ' cu
                     LEFT JOIN ' . TABLE_ADDRESS_BOOK . ' ab ON cu.customers_id = ab.customers_id
@@ -261,13 +254,6 @@ class N2GoApi
                     LEFT JOIN ' . TABLE_NEWSLETTER_RECIPIENTS . ' nr ON cu.customers_email_address = nr.customers_email_address';
 
         if (xtc_not_null($group)) {
-            if ($group == 1) {
-                $this->getGuestSubscribers($subscribed, $fields, $limit, $offset, $emails);
-                $this->output['customers'];
-
-                return;
-            }
-
             $conditions[] = 'cu.customers_status = ' . $group;
         }
 
@@ -288,6 +274,7 @@ class N2GoApi
             $query .= ' WHERE ' . implode(' AND ', $conditions);
         }
 
+        $query .= ' GROUP BY cu.customers_id ';
         if (xtc_not_null($limit)) {
             $offset = (xtc_not_null($offset) ? $offset : 0);
             $query .= ' LIMIT ' . $offset . ', ' . $limit;
@@ -301,18 +288,33 @@ class N2GoApi
             foreach ($cs as $key => $value) {
                 $cs[$key] = utf8_encode($value);
             }
-
             $customers[] = $cs;
         }
 
-        $this->output['customers'] =  $customers;
+        if (xtc_not_null($group) && $group == 1 && (count($customers) != $limit || $limit === '' )) {
+            if (xtc_not_null($limit)) {
+                $limit -= count($customers);
+            }
+            if (count($customers) == 0) {
+                $this->getCustomerCount(false);
+                $offset -= $this->output['customersCount'];
+                unset($this->output['customersCount']);
+            } else {
+                $offset = 0;
+            }
+            $this->getGuestSubscribers($subscribed, $fields, $limit, $offset, $emails, $customers);
+            $this->output['customers'];
+            return;
+        }
+        $this->output['customers'] = $customers;
     }
 
     /**
      * Returns json encode customer count based on group and subscribed parameters
-     * @return string
+     *
+     * @param boolean $countRecipients
      */
-    public function getCustomerCount()
+    public function getCustomerCount($countRecipients = true)
     {
         $total = 0;
         $group = (isset($this->postParams['group']) ? xtc_db_prepare_input($this->postParams['group']) : '');
@@ -333,8 +335,9 @@ class N2GoApi
 
             $table = TABLE_CUSTOMERS;
 
-            if (!xtc_not_null($group) || $group == 1) {
-                $query2 = 'SELECT COUNT(*) AS total FROM ' . TABLE_NEWSLETTER_RECIPIENTS . ' WHERE customers_status = 1';
+            if (!xtc_not_null($group) || $group == 1 && $countRecipients) {
+                $query2 = 'SELECT COUNT(*) AS total FROM ' . TABLE_NEWSLETTER_RECIPIENTS . ' nr LEFT JOIN ' . TABLE_CUSTOMERS . ' cu
+                ON cu.customers_id = nr.customers_id WHERE nr.customers_status = 1 AND nr.customers_id = 0';
                 $countQuery = xtc_db_query($query2);
                 $result = xtc_db_fetch_array($countQuery);
                 $total += $result['total'];
@@ -358,8 +361,17 @@ class N2GoApi
         $status = isset($this->postParams['status']) ? xtc_db_prepare_input($this->postParams['status']) : 0;
         $table = TABLE_NEWSLETTER_RECIPIENTS;
         if (xtc_not_null($email) && $email) {
-            xtc_db_query("UPDATE $table SET mail_status = $status WHERE customers_email_address = '$email'");
-            if(mysql_affected_rows() > 0) {
+            $query = 'SELECT COUNT(*) AS total FROM ' . $table .' WHERE customers_email_address = "' . $email . '"';
+            $countResult = xtc_db_query($query);
+            $noRecipients = xtc_db_fetch_array($countResult);
+            if ($noRecipients['total'] == 0) {
+                $result = $this->transformCustomerToRecipient($email, $status);
+            } else {
+                $query = 'UPDATE ' . $table . ' SET mail_status = ' . $status .
+                    ' WHERE customers_email_address = "' . $email . '"';
+                $result = xtc_db_query($query);
+            }
+            if ($result) {
                 $this->output['message'] = 'Mail status successfully changed';
             } else {
                 $this->failure('There is no customer with given email address');
@@ -379,7 +391,7 @@ class N2GoApi
      * Returns array of product fields
      * @return array
      */
-    public function getProductFields ()
+    public function getProductFields()
     {
         $fields = array();
         $fields['pr.products_id'] = $this->createField('pr.products_id', 'Product Id.', 'Integer');
@@ -525,29 +537,41 @@ class N2GoApi
      * @param string $limit
      * @param string $offset
      * @param array $emails
-     * @return string
+     * @param array $fullCustomers
      */
-    public function getGuestSubscribers($subscribed = '', $fields = array(), $limit = '', $offset = '', $emails = array())
+    public function getGuestSubscribers($subscribed = '', $fields = array(), $limit = '', $offset = '',
+                                        $emails = array(), $fullCustomers = array())
     {
         $map = array(
-            'nr.mail_status' => 'mail_status',
-            'cu.customers_email_address' => 'customers_email_address',
-            'cu.customers_date_added' => 'date_added',
+            'cu.customers_email_address' => 'nr.customers_email_address',
+            'cu.customers_date_added' => 'nr.date_added',
+            'cu.customers_id' => 'nr.customers_id',
+            'cu.customers_firstname' => 'nr.customers_firstname',
+            'cu.customers_lastname' => 'nr.customers_lastname',
+            'cu.customers_status' => 'nr.customers_status',
         );
-        $conditions = array('customers_status = 1');
+
+        $conditions = array('nr.customers_status = 1 ');
         $customers = array();
 
-        $query = $this->buildCustomersQuery($fields, $map) . ' FROM ' . TABLE_NEWSLETTER_RECIPIENTS;
+        $query = $this->buildCustomersQuery($fields, $map) . ' FROM ' . TABLE_NEWSLETTER_RECIPIENTS . ' nr LEFT JOIN ' .
+            TABLE_CUSTOMERS . ' cu ON cu.customers_email_address = nr.customers_email_address LEFT JOIN ' .
+            TABLE_ADDRESS_BOOK . ' ab ON cu.customers_id = ab.customers_id  LEFT JOIN ' .
+            TABLE_COUNTRIES . ' co ON ab.entry_country_id = co.countries_id';
+
+        $conditions[] = 'nr.customers_id = 0';
 
         if (xtc_not_null($subscribed) && (boolean)$subscribed) {
-            $conditions[] = 'mail_status = 1';
+            $conditions[] = 'nr.mail_status = 1';
         }
 
         if (!empty($emails)) {
-            $conditions[] = "customers_email_address IN ('" . implode("', '", (array)$emails) . "')";
+            $conditions[] = "nr.customers_email_address IN ('" . implode("', '", (array)$emails) . "')";
         }
 
         $query .= ' WHERE ' . implode(' AND ', $conditions);
+
+        // first sets limit for nr query
         if (xtc_not_null($limit)) {
             $offset = (xtc_not_null($offset) ? $offset : 0);
             $query .= ' LIMIT ' . $offset . ', ' . $limit;
@@ -559,14 +583,14 @@ class N2GoApi
             $customers[] = xtc_db_fetch_array($customersQuery);
         }
 
-        $this->output['customers'] = $customers;
+        $this->output['customers'] = array_merge($fullCustomers, $customers);
     }
 
     /**
      * @param array $fields
      * @return string
      */
-    private function buildProductQuery ($fields = array())
+    private function buildProductQuery($fields = array())
     {
         $select = array();
         $map = array(
@@ -604,10 +628,41 @@ class N2GoApi
     }
 
     /**
+     * If customer exists, create recipient with given status
+     *
+     * @param $email
+     * @param $status
+     * @return bool
+     */
+    private function transformCustomerToRecipient($email, $status){
+        $result = false;
+        $customers = array();
+        $table = TABLE_NEWSLETTER_RECIPIENTS;
+
+        $query = 'SELECT * FROM ' . TABLE_CUSTOMERS . ' WHERE customers_email_address = "' . $email . '"';
+        $customerQuery = xtc_db_query($query);
+        $n = xtc_db_num_rows($customerQuery);
+        for ($i = 0; $i < $n; $i++) {
+            $customers[] = xtc_db_fetch_array($customerQuery);
+        }
+
+        foreach ($customers as $customer) {
+            $query = 'INSERT INTO ' . $table . ' (customers_email_address, customers_id, customers_status, 
+                customers_firstname, customers_lastname, mail_status) VALUES ("' . $email . '", "' .
+                $customer['customers_id'] . '", "' . $customer['customers_status'] . '", "' .
+                $customer['customers_firstname'] . '", "' . $customer['customers_lastname'] . '", "' . $status . '")';
+            if (xtc_db_query($query)) {
+                $result = true;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * In case of any failure
      * @param $msg
      * @param $code
-     * @return mixed|string
      */
     private function failure ($msg, $code = self::ERRNO_PLUGIN_OTHER)
     {
