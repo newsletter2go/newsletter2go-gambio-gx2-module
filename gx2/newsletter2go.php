@@ -322,22 +322,29 @@ class N2GoApi
         $conditions = array();
         $query = 'SELECT COUNT(*) AS total FROM ';
 
+        // customers_status field can be pulled out because both tables(TABLE_NEWSLETTER_RECIPIENTS, TABLE_CUSTOMERS) have it
+        if (xtc_not_null($group)) {
+            $conditions[] = 'customers_status = ' . $group;
+        }
+
+        // customers_id field can be pulled out because both tables(TABLE_NEWSLETTER_RECIPIENTS, TABLE_CUSTOMERS) have it
+        if (!$countRecipients) {
+            $conditions[] = 'customers_id != 0';
+        }
+
         if (xtc_not_null($subscribed) && (boolean)$subscribed) {
+            // if only looking for only subscribers it is enough to just look into newsletter recipient table
             $table = TABLE_NEWSLETTER_RECIPIENTS;
             $conditions[] = 'mail_status = 1';
-            if (xtc_not_null($group)) {
-                $conditions[] = 'customers_status = ' . $group;
-            }
         } else {
-            if (xtc_not_null($group)) {
-                $conditions[] = 'customers_status = ' . $group;
-            }
-
+            // if looking for all customers than we first take count of guest subscribers and add count of registered customers
             $table = TABLE_CUSTOMERS;
 
-            if (!xtc_not_null($group) || $group == 1 && $countRecipients) {
-                $query2 = 'SELECT COUNT(*) AS total FROM ' . TABLE_NEWSLETTER_RECIPIENTS . ' nr LEFT JOIN ' . TABLE_CUSTOMERS . ' cu
-                ON cu.customers_id = nr.customers_id WHERE nr.customers_status = 1 AND nr.customers_id = 0';
+            if ((!xtc_not_null($group) || $group == 1) && $countRecipients) {
+                $query2 = 'SELECT COUNT(*) AS total 
+                           FROM ' . TABLE_NEWSLETTER_RECIPIENTS . ' nr 
+                           WHERE nr.customers_status = 1 AND nr.customers_id = 0';
+
                 $countQuery = xtc_db_query($query2);
                 $result = xtc_db_fetch_array($countQuery);
                 $total += $result['total'];

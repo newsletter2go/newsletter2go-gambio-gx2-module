@@ -60,7 +60,7 @@ if (!empty($_POST['n2g_username']) && !empty($_POST['n2g_apikey'])) {
 
     if (empty($username)) {
         $query = "INSERT INTO `" . TABLE_CONFIGURATION . "` (`configuration_key`, `configuration_value`)
-                    VALUES ('NEWSLETTER2GO_USERNAME', '$inputUser'), ('NEWSLETTER2GO_APIKEY', '$inputKey'), ('NEWSLETTER2GO_VERSION', '3004')";
+                    VALUES ('NEWSLETTER2GO_USERNAME', '$inputUser'), ('NEWSLETTER2GO_APIKEY', '$inputKey'), ('NEWSLETTER2GO_VERSION', '3005')";
         xtc_db_query($query);
         $username = $inputUser;
         $apikey = $inputKey;
