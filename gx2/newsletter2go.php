@@ -379,7 +379,7 @@ class N2GoApi
      * Returns array of product fields
      * @return array
      */
-    public function getProductFields ()
+    public function getProductFields()
     {
         $fields = array();
         $fields['pr.products_id'] = $this->createField('pr.products_id', 'Product Id.', 'Integer');
@@ -394,6 +394,8 @@ class N2GoApi
         $fields['pr.products_weight'] = $this->createField('pr.products_weight', 'Product Weight.');
         $fields['pr.products_quantity'] = $this->createField('pr.products_quantity', 'Product Quantity.');
         $fields['pr.products_shippingtime'] = $this->createField('pr.products_shippingtime', 'Product Shipping Time.');
+        $fields['pr.products_vpe_value'] = $this->createField('pr.products_vpe_value', 'Unit Price.');
+        $fields['vpe.products_vpe_name'] = $this->createField('vpe.products_vpe_name', 'Packing Unit.');
         $fields['mf.manufacturers_name'] = $this->createField('mf.manufacturers_name', 'Manufacturer Name.');
         $fields['pic.brand_name'] = $this->createField('pic.brand_name', 'Brand Name.');
         $fields['pd.products_name'] = $this->createField('pd.products_name', 'Product Name.');
@@ -426,14 +428,20 @@ class N2GoApi
             return;
         }
 
+        $langIdQuery = xtc_db_query("SELECT languages_id FROM " . TABLE_LANGUAGES . " WHERE code = '" . $lang . "'");
+        $langResult = xtc_db_fetch_array($langIdQuery);
+        $langId = $langResult['languages_id'];
+
         $query = $this->buildProductQuery($fields);
         $query .= ' FROM ' . TABLE_PRODUCTS . ' pr
                     LEFT JOIN ' . TABLE_TAX_RATES . ' tr ON pr.products_tax_class_id = tr.tax_class_id
                     LEFT JOIN ' . TABLE_PRODUCTS_DESCRIPTION . ' pd ON pr.products_id = pd.products_id
                     LEFT JOIN ' . TABLE_MANUFACTURERS . ' mf ON mf.manufacturers_id = pr.manufacturers_id
                     LEFT JOIN products_item_codes pic ON pr.products_id = pic.products_id
-                    LEFT JOIN ' . TABLE_LANGUAGES . ' ln ON pd.language_id = ln.languages_id ' .
-            "WHERE (pr.products_id = '$id' OR pr.products_model = '$id') AND ln.code = '$lang' GROUP BY pr.products_id";
+                    LEFT JOIN ' . TABLE_LANGUAGES . ' ln ON pd.language_id = ln.languages_id 
+                    LEFT JOIN ' . TABLE_PRODUCTS_VPE . ' vpe ON pr.products_vpe = vpe.products_vpe_id ' .
+            "WHERE (pr.products_id = '$id' OR pr.products_model = '$id') AND ln.code = '$lang' 
+            AND (pr.products_vpe = 0 OR vpe.language_id = '$langId') GROUP BY pr.products_id";
 
         $productResult = xtc_db_query($query);
         $product = xtc_db_fetch_array($productResult);
@@ -578,6 +586,8 @@ class N2GoApi
             'pr.products_weight' => 'weight',
             'pr.products_quantity' => 'quantity',
             'pr.products_shippingtime' => 'shippingTime',
+            'pr.products_vpe_value' => 'unitPrice',
+            'vpe.products_vpe_name' => 'packingUnit',
             'pd.products_url' => 'url',
             'pd.products_short_description' => 'shortDescription',
             'pd.products_description' => 'description',
